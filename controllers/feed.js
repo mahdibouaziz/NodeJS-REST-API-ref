@@ -6,15 +6,34 @@ const Post = require("../models/post");
 const { syncError, asyncError } = require("../errors/errors");
 
 exports.getPosts = (req, res, next) => {
-  Post.find({})
+  const currentPage = req.query.page || 1;
+  const perPage = 2;
+  let totalItems;
+  let totalPages;
+
+  // for the pagnation we need: currentPage, totalItems, totalPages,ItemsPerPage
+  Post.find()
+    .countDocuments()
+    .then((count) => {
+      totalItems = count;
+      totalPages = Math.ceil(totalItems / perPage);
+      return Post.find({})
+        .skip((currentPage - 1) * perPage)
+        .limit(perPage);
+    })
     .then((posts) => {
-      return res.status(200).json({ message: "posts fetched", posts });
+      return res
+        .status(200)
+        .json({
+          message: "posts fetched",
+          posts,
+          totalPages,
+          totalItems,
+          currentPage,
+        });
     })
     .catch((err) => {
-      if (!err.statusCode) {
-        err.statusCode = 500;
-      }
-      next(err);
+      asyncError(err, next);
     });
 };
 
@@ -43,7 +62,6 @@ exports.createPost = (req, res, next) => {
   post
     .save(post)
     .then((result) => {
-      console.log(result);
       return res.status(201).json({
         message: "Post created successfully",
         post: result,
@@ -61,7 +79,6 @@ exports.getPost = (req, res, next) => {
       if (!post) {
         syncError("Could not find post", 404);
       }
-      console.log(post.imageUrl);
       return res.status(200).json({
         message: "Post fetched",
         post,
@@ -125,7 +142,6 @@ exports.deletePost = (req, res, next) => {
       return Post.findByIdAndRemove(postId);
     })
     .then((result) => {
-      console.log(result);
       res.status(200).json({ message: "deleted post" });
     })
     .catch((err) => {
