@@ -1,14 +1,47 @@
+const path = require("path");
+
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const mongoose = require("mongoose");
-const path = require("path");
+const multer = require("multer");
 
 const feedRoutes = require("./routes/feed");
 
 const MONGODB_URI =
   "mongodb+srv://mahdi:mahdi123@cluster0.sr2ks.mongodb.net/messages?retryWrites=true&w=majority";
+
 const app = express();
+
+// to handle ths storage of the images
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "images");
+  },
+  filename: (req, file, cb) => {
+    cb(null, new Date().toISOString().replace(/:/g, "-") + file.originalname);
+  },
+});
+
+// control which files should be uploaded and which should be skipped.
+const fileFilter = (req, file, cb) => {
+  // The function should call `cb` with a boolean
+  // to indicate if the file should be accepted
+  // To reject this file pass `false`, like so: cb(null, false);
+  // To accept the file pass `true`, like so: cb(null, true);
+  // You can always pass an error if something goes wrong: cb(new Error("I don't have a clue!"));
+  if (
+    file.mimetype === "image/png" ||
+    file.mimetype === "image/jpg" ||
+    file.mimetype === "image/jpeg"
+  ) {
+    cb(null, true);
+  } else {
+    cb(null, false);
+  }
+};
+// register multer
+app.use(multer({ storage: storage, fileFilter: fileFilter }).single("image"));
 
 //Serving static images
 app.use("/images", express.static(path.join(__dirname, "images")));
