@@ -7,6 +7,7 @@ const mongoose = require("mongoose");
 const multer = require("multer");
 
 const feedRoutes = require("./routes/feed");
+const authRoutes = require("./routes/auth");
 
 const MONGODB_URI =
   "mongodb+srv://mahdi:mahdi123@cluster0.sr2ks.mongodb.net/messages?retryWrites=true&w=majority";
@@ -53,13 +54,15 @@ app.use(bodyParser.json()); //Content-Type: application/json;
 app.use(cors());
 
 app.use("/feed", feedRoutes);
+app.use("/auth", authRoutes);
 
 //Default error handler middleware
 app.use((err, req, res, next) => {
   console.log(err);
   const status = err.statusCode || 500;
-  const message = err.message;
-  return res.status(status).json({ message: message });
+  const message = err.message || "";
+  const errorData = err.data || "";
+  return res.status(status).json({ message: message, data: errorData });
 });
 
 mongoose
