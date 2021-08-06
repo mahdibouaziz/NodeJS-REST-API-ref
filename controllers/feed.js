@@ -6,34 +6,28 @@ const Post = require("../models/post");
 const { syncError, asyncError } = require("../errors/errors");
 const User = require("../models/user");
 
-exports.getPosts = (req, res, next) => {
+exports.getPosts = async (req, res, next) => {
   const currentPage = req.query.page || 1;
   const perPage = 2;
-  let totalItems;
-  let totalPages;
 
   // for the pagnation we need: currentPage, totalItems, totalPages,ItemsPerPage
-  Post.find()
-    .countDocuments()
-    .then((count) => {
-      totalItems = count;
-      totalPages = Math.ceil(totalItems / perPage);
-      return Post.find({})
-        .skip((currentPage - 1) * perPage)
-        .limit(perPage);
-    })
-    .then((posts) => {
-      return res.status(200).json({
-        message: "posts fetched",
-        posts,
-        totalPages,
-        totalItems,
-        currentPage,
-      });
-    })
-    .catch((err) => {
-      asyncError(err, next);
+  try {
+    const totalItems = await Post.find().countDocuments();
+    const totalPages = Math.ceil(totalItems / perPage);
+    const posts = await Post.find({})
+      .skip((currentPage - 1) * perPage)
+      .limit(perPage);
+
+    return res.status(200).json({
+      message: "posts fetched",
+      posts,
+      totalPages,
+      totalItems,
+      currentPage,
     });
+  } catch (err) {
+    asyncError(err, next);
+  }
 };
 
 exports.createPost = (req, res, next) => {
