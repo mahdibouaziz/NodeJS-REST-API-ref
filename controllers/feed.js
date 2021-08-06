@@ -82,28 +82,6 @@ exports.createPost = (req, res, next) => {
     .catch((err) => {
       asyncError(err, next);
     });
-
-  // post
-  //   .save(post)
-  //   .then((result) => {
-  //     post = result;
-  //     return User.findById(userId);
-  //   })
-  //   .then((user) => {
-  //     console.log("Post: ", post);
-  //     user.posts = [...user.posts, post._id];
-  //     console.log("UserPosts: ", user.posts);
-  //     return user.save();
-  //   })
-  //   .then((user) => {
-  //     return res.status(201).json({
-  //       message: "Post created successfully",
-  //       post,
-  //     });
-  //   })
-  //   .catch((err) => {
-  //     asyncError(err, next);
-  //   });
 };
 
 exports.getPost = (req, res, next) => {
@@ -146,6 +124,11 @@ exports.updatePost = (req, res, next) => {
       if (!post) {
         syncError("Could not find post", 404);
       }
+
+      if (post.creator.toString() !== req.userId.toString()) {
+        syncError("Unauthorized", 403);
+      }
+
       if (imageUrl !== post.imageUrl) {
         clearImage(post.imageUrl);
         post.imageUrl = imageUrl;
@@ -172,8 +155,22 @@ exports.deletePost = (req, res, next) => {
       if (!post) {
         syncError("Could not find post", 404);
       }
+
+      if (post.creator.toString() !== req.userId.toString()) {
+        syncError("Unauthorized", 403);
+      }
+
       clearImage(post.imageUrl);
       return Post.findByIdAndRemove(postId);
+    })
+    .then((result) => {
+      return User.findById(req.userId);
+    })
+    .then((userResult) => {
+      userResult.posts = userResult.posts.filter((postResultId) => {
+        return postResultId.toString() !== postId.toString();
+      });
+      return userResult.save();
     })
     .then((result) => {
       res.status(200).json({ message: "deleted post" });
