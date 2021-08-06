@@ -36,8 +36,8 @@ router.post(
   authController.signup
 ); // register
 
-// POST /auth/signin
-// router.post("/signin");
+// POST /auth/login
+router.post("/login", authController.login);
 
 // POST /auth/logout
 // router.post("/logout");
