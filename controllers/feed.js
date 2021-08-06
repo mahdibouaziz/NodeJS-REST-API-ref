@@ -4,6 +4,7 @@ const path = require("path");
 const { validationResult } = require("express-validator");
 const Post = require("../models/post");
 const { syncError, asyncError } = require("../errors/errors");
+const User = require("../models/user");
 
 exports.getPosts = (req, res, next) => {
   const currentPage = req.query.page || 1;
@@ -22,15 +23,13 @@ exports.getPosts = (req, res, next) => {
         .limit(perPage);
     })
     .then((posts) => {
-      return res
-        .status(200)
-        .json({
-          message: "posts fetched",
-          posts,
-          totalPages,
-          totalItems,
-          currentPage,
-        });
+      return res.status(200).json({
+        message: "posts fetched",
+        posts,
+        totalPages,
+        totalItems,
+        currentPage,
+      });
     })
     .catch((err) => {
       asyncError(err, next);
@@ -51,25 +50,60 @@ exports.createPost = (req, res, next) => {
 
   const title = req.body.title;
   const content = req.body.content;
-  // Create post in the db
-  const post = new Post({
-    title,
-    content,
-    creator: { name: "mahdi" },
-    imageUrl: imageUrl,
-  });
 
-  post
-    .save(post)
-    .then((result) => {
+  // get the user from the request
+  const userId = req.userId;
+  let user;
+  let post;
+
+  User.findById(userId)
+    .then((userResult) => {
+      user = userResult;
+      post = new Post({
+        title,
+        content,
+        creator: user._id,
+        imageUrl: imageUrl,
+      });
+      return post.save();
+    })
+    .then((postResult) => {
+      post = postResult;
+      user.posts = [...user.posts, post._id];
+      return user.save();
+    })
+    .then((updatedUser) => {
       return res.status(201).json({
         message: "Post created successfully",
-        post: result,
+        post,
+        creator: { _id: user._id, name: user.name },
       });
     })
     .catch((err) => {
       asyncError(err, next);
     });
+
+  // post
+  //   .save(post)
+  //   .then((result) => {
+  //     post = result;
+  //     return User.findById(userId);
+  //   })
+  //   .then((user) => {
+  //     console.log("Post: ", post);
+  //     user.posts = [...user.posts, post._id];
+  //     console.log("UserPosts: ", user.posts);
+  //     return user.save();
+  //   })
+  //   .then((user) => {
+  //     return res.status(201).json({
+  //       message: "Post created successfully",
+  //       post,
+  //     });
+  //   })
+  //   .catch((err) => {
+  //     asyncError(err, next);
+  //   });
 };
 
 exports.getPost = (req, res, next) => {
