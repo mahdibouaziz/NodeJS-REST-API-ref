@@ -5,6 +5,7 @@ const { validationResult } = require("express-validator");
 const Post = require("../models/post");
 const { syncError, asyncError } = require("../errors/errors");
 const User = require("../models/user");
+const io = require("../socket");
 
 exports.getPosts = async (req, res, next) => {
   const currentPage = req.query.page || 1;
@@ -15,6 +16,7 @@ exports.getPosts = async (req, res, next) => {
     const totalItems = await Post.find().countDocuments();
     const totalPages = Math.ceil(totalItems / perPage);
     const posts = await Post.find({})
+      .populate("creator")
       .skip((currentPage - 1) * perPage)
       .limit(perPage);
 
@@ -30,7 +32,7 @@ exports.getPosts = async (req, res, next) => {
   }
 };
 
-exports.createPost = (req, res, next) => {
+exports.createPost = async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     syncError("Validation failed, data is incorrect", 422);
@@ -47,35 +49,29 @@ exports.createPost = (req, res, next) => {
 
   // get the user from the request
   const userId = req.userId;
-  let user;
-  let post;
-
-  User.findById(userId)
-    .then((userResult) => {
-      user = userResult;
-      post = new Post({
-        title,
-        content,
-        creator: user._id,
-        imageUrl: imageUrl,
-      });
-      return post.save();
-    })
-    .then((postResult) => {
-      post = postResult;
-      user.posts = [...user.posts, post._id];
-      return user.save();
-    })
-    .then((updatedUser) => {
-      return res.status(201).json({
-        message: "Post created successfully",
-        post,
-        creator: { _id: user._id, name: user.name },
-      });
-    })
-    .catch((err) => {
-      asyncError(err, next);
+  try {
+    const user = await User.findById(userId);
+    let post = new Post({
+      title,
+      content,
+      creator: user._id,
+      imageUrl: imageUrl,
     });
+    post = await post.save();
+    user.posts = [...user.posts, post._id];
+    await user.save();
+
+    // Socket part here
+    io.getIO().emit("posts", { action: "create", post: post });
+
+    return res.status(201).json({
+      message: "Post created successfully",
+      post,
+      creator: { _id: user._id, name: user.name },
+    });
+  } catch (err) {
+    asyncError(err, next);
+  }
 };
 
 exports.getPost = (req, res, next) => {
